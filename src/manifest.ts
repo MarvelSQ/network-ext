@@ -20,7 +20,7 @@ export default defineManifest({
     default_icon: 'img/logo-48.png',
   },
   options_page: 'options.html',
-  devtools_page: 'devtools.html',
+  devtools_page: 'devtools-loader.html',
   background: {
     service_worker: 'src/background/index.ts',
     type: 'module',

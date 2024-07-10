@@ -58,6 +58,9 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       outDir: 'build',
       rollupOptions: {
+        input: {
+          devtools: resolve(__dirname, 'devtools.html'),
+        },
         output: {
           chunkFileNames: 'assets/chunk-[hash].js',
         },
