@@ -1,13 +1,15 @@
 import { defineConfig, PluginOption } from 'vite'
 import { crx } from '@crxjs/vite-plugin'
 import react from '@vitejs/plugin-react'
-import { resolve } from 'node:path'
+import { resolve, dirname } from 'node:path'
 
 import manifest from './src/manifest'
 
 // vite plugin for ?compiled&raw
 function compiledRawPlugin() {
   const compiledChunkIds = []
+  const enteredModuleIds = []
+  const compiledModuleIds = []
 
   const codeMap: Record<string, string> = {}
 
@@ -16,6 +18,31 @@ function compiledRawPlugin() {
       name: 'replace-virtual-module',
       enforce: 'pre',
       apply: 'build',
+      async resolveId(id, importer, options) {
+        const uniq = `${id}#${importer}`
+        if (
+          !enteredModuleIds.includes(uniq) &&
+          (compiledChunkIds.includes(importer) || compiledModuleIds.includes(importer))
+        ) {
+          console.log('resolve', id, 'from', importer)
+          enteredModuleIds.push(uniq)
+          const resolvedId = await this.resolve(id, importer, options)
+          resolvedId.id = resolvedId.id + '?fromRaw'
+          compiledChunkIds.push(resolvedId.id)
+          return resolvedId
+        }
+      },
+      async load(id) {
+        if (id.endsWith('?fromRaw')) {
+          console.log('load', id)
+          const targetId = id.replace('?fromRaw', '')
+          const result = await this.load({ id: targetId })
+          return {
+            ...result,
+            id,
+          }
+        }
+      },
       transform(_, id) {
         if (id.includes('?compiled&raw')) {
           const targetId = id.replace('?compiled&raw', '')
@@ -25,6 +52,7 @@ function compiledRawPlugin() {
           this.emitFile({
             id: targetId,
             type: 'chunk',
+            importer: targetId,
           })
           return `const rawContent = \`RAW_CONTENT_${targetId}\`;
 
@@ -35,6 +63,7 @@ export default rawContent`
         if (compiledChunkIds.includes(chunk.facadeModuleId)) {
           // store compiled code
           codeMap[chunk.facadeModuleId] = code
+          codeMap[chunk.facadeModuleId.replace('?fromRaw', '')] = code
         }
       },
       generateBundle(_, bundle) {
