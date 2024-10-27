@@ -1,7 +1,8 @@
 import { defineConfig, PluginOption } from 'vite'
 import { crx } from '@crxjs/vite-plugin'
 import react from '@vitejs/plugin-react'
-import { resolve, dirname } from 'node:path'
+import { resolve } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 import manifest from './src/manifest'
 
@@ -75,6 +76,29 @@ export default rawContent`
             })
           }
         })
+      },
+    },
+    {
+      name: 'update-maniest',
+      enforce: 'post',
+      apply: 'build',
+      writeBundle() {
+        /**
+         * fix CSP issue
+         * @see https://github.com/guocaoyi/create-chrome-ext/issues/93
+         */
+        console.log('overwrite manifest.json')
+        const manifestPath = resolve(__dirname, 'build/manifest.json')
+        try {
+          const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+          manifest.web_accessible_resources = manifest.web_accessible_resources.map((resource) => {
+            resource.use_dynamic_url = false
+            return resource
+          })
+          writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
+        } catch (e) {
+          console.error('Failed to read manifest.json', e)
+        }
       },
     },
   ] as PluginOption[]
